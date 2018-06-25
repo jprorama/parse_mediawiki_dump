@@ -23,7 +23,7 @@ const DUMP: &str = concat!(
 
 #[test]
 fn main() {
-    let mut parser = parse_mediawiki_dump::parse(std::io::Cursor::new(DUMP));
+    let mut parser = parse_mediawiki_dump::parse(std::io::BufReader::new(std::io::Cursor::new(DUMP)));
     assert!(match parser.next() {
         Some(Ok(parse_mediawiki_dump::Page {
             format: Some(format),
