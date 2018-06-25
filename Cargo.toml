@@ -1,0 +1,13 @@
+[package]
+name = "parse_mediawiki_dump"
+version = "0.1.0"
+authors = ["Fredrik Portström <fredrik@portstrom.com>"]
+
+[dependencies]
+xml-rs = "*"
+
+[[example]]
+name = "main"
+
+[dev_dependencies.bzip2]
+version = "0"
