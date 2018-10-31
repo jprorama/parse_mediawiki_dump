@@ -1,10 +1,14 @@
+// Copyright 2018 Fredrik Portström <https://portstrom.com>
+// This is free software distributed under the terms specified in
+// the file LICENSE at the top-level directory of this distribution.
+
 //! Parse XML dumps exported from Mediawiki.
 //!
 //! This module parses [XML dumps](https://www.mediawiki.org/wiki/Help:Export) exported from Mediawiki, providing each page from the dump through an iterator. This is useful for parsing the [dumps from Wikipedia and other Wikimedia projects](https://dumps.wikimedia.org).
 //!
 //! # Caution
 //!
-//! If you need to parse any wiki text extracted from a dump, please use the crate [Parse Wiki Text](https://github.com/portstrom/parse_wiki_text). Correctly parsing wiki text requires dealing with an astonishing amount of difficult and counterintuitive cases. Parse Wiki Text automatically deals with all these cases, giving you an unambiguous parsed tree that is easy to work with.
+//! If you need to parse any wiki text extracted from a dump, please use the crate Parse Wiki Text ([crates.io](https://crates.io/crates/parse_wiki_text), [Github](https://github.com/portstrom/parse_wiki_text)). Correctly parsing wiki text requires dealing with an astonishing amount of difficult and counterintuitive cases. Parse Wiki Text automatically deals with all these cases, giving you an unambiguous tree of parsed elements that is easy to work with.
 //!
 //! # Limitations
 //!
@@ -16,7 +20,7 @@
 //!
 //! # Examples
 //!
-//! Parse a bzip2 compressed file and distinguish ordinary articles from other pages. An running example with complete error handling is available in the `examples` folder.
+//! Parse a bzip2 compressed file and distinguish ordinary articles from other pages. A running example with complete error handling is available in the `examples` folder.
 //!
 //! ```rust,no_run
 //! extern crate bzip2;
@@ -53,16 +57,27 @@
 //! }
 //! ```
 
+#![forbid(unsafe_code)]
 #![warn(missing_docs)]
 
 extern crate quick_xml;
 
-use quick_xml::{Reader, events::Event};
+use quick_xml::{events::Event, Reader};
 use std::io::BufRead;
 
-enum PageChildElement { Ns, Revision, Title, Unknown }
+enum PageChildElement {
+    Ns,
+    Revision,
+    Title,
+    Unknown,
+}
 
-enum RevisionChildElement { Format, Model, Text, Unknown }
+enum RevisionChildElement {
+    Format,
+    Model,
+    Text,
+    Unknown,
+}
 
 #[derive(Debug)]
 /// The error type for `Parser`.
@@ -78,7 +93,7 @@ pub enum Error {
     NotSupported(usize),
 
     /// Error from the XML reader.
-    XmlReader(quick_xml::Error)
+    XmlReader(quick_xml::Error),
 }
 
 /// Parsed page.
@@ -117,7 +132,7 @@ pub struct Page {
     /// The title of the page.
     ///
     /// Parsed from the text content of the `title` element in the `page` element.
-    pub title: String
+    pub title: String,
 }
 
 /// Parser working as an iterator over pages.
@@ -125,15 +140,19 @@ pub struct Parser<R: BufRead> {
     buffer: Vec<u8>,
     namespace_buffer: Vec<u8>,
     reader: Reader<R>,
-    started: bool
+    started: bool,
 }
 
 impl std::fmt::Display for Error {
     fn fmt(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self {
             Error::Format(position) => write!(formatter, "Invalid format at position {}", position),
-            Error::NotSupported(position) => write!(formatter, "The element at position {} is not supported", position),
-            Error::XmlReader(error) => error.fmt(formatter)
+            Error::NotSupported(position) => write!(
+                formatter,
+                "The element at position {} is not supported",
+                position
+            ),
+            Error::XmlReader(error) => error.fmt(formatter),
         }
     }
 }
@@ -150,7 +169,7 @@ impl<R: BufRead> Iterator for Parser<R> {
     fn next(&mut self) -> Option<Self::Item> {
         Some(match next(self) {
             Err(error) => Err(error),
-            Ok(item) => Ok(item?)
+            Ok(item) => Ok(item?),
         })
     }
 }
@@ -158,14 +177,18 @@ impl<R: BufRead> Iterator for Parser<R> {
 fn match_namespace(namespace: Option<&[u8]>) -> bool {
     match namespace {
         None => false,
-        Some(namespace) => namespace == b"http://www.mediawiki.org/xml/export-0.10/" as &[u8]
+        Some(namespace) => namespace == b"http://www.mediawiki.org/xml/export-0.10/" as &[u8],
     }
 }
 
 fn next(parser: &mut Parser<impl BufRead>) -> Result<Option<Page>, Error> {
     if !parser.started {
         loop {
-            if let (namespace, Event::Start(event)) = parser.reader.read_namespaced_event(&mut parser.buffer, &mut parser.namespace_buffer)? {
+            parser.buffer.clear();
+            if let (namespace, Event::Start(event)) = parser
+                .reader
+                .read_namespaced_event(&mut parser.buffer, &mut parser.namespace_buffer)?
+            {
                 if match_namespace(namespace) && event.local_name() == b"mediawiki" {
                     break;
                 }
@@ -175,10 +198,16 @@ fn next(parser: &mut Parser<impl BufRead>) -> Result<Option<Page>, Error> {
         parser.started = true;
     }
     loop {
-        if !match parser.reader.read_namespaced_event(&mut parser.buffer, &mut parser.namespace_buffer)? {
+        parser.buffer.clear();
+        if !match parser
+            .reader
+            .read_namespaced_event(&mut parser.buffer, &mut parser.namespace_buffer)?
+        {
             (_, Event::End(_)) => return Ok(None),
-            (namespace, Event::Start(event)) => match_namespace(namespace) && event.local_name() == b"page",
-            _ => continue
+            (namespace, Event::Start(event)) => {
+                match_namespace(namespace) && event.local_name() == b"page"
+            }
+            _ => continue,
         } {
             skip_element(parser)?;
             continue;
@@ -189,24 +218,36 @@ fn next(parser: &mut Parser<impl BufRead>) -> Result<Option<Page>, Error> {
         let mut text = None;
         let mut title = None;
         loop {
-            match match parser.reader.read_namespaced_event(&mut parser.buffer, &mut parser.namespace_buffer)? {
-                (_, Event::End(_)) => return match (namespace, text, title) {
-                    (Some(namespace), Some(text), Some(title)) => Ok(Some(Page { format, model, namespace, text, title })),
-                    _ => Err(Error::Format(parser.reader.buffer_position()))
-                },
+            parser.buffer.clear();
+            match match parser
+                .reader
+                .read_namespaced_event(&mut parser.buffer, &mut parser.namespace_buffer)?
+            {
+                (_, Event::End(_)) => {
+                    return match (namespace, text, title) {
+                        (Some(namespace), Some(text), Some(title)) => Ok(Some(Page {
+                            format,
+                            model,
+                            namespace,
+                            text,
+                            title,
+                        })),
+                        _ => Err(Error::Format(parser.reader.buffer_position())),
+                    }
+                }
                 (namespace, Event::Start(event)) => {
                     if match_namespace(namespace) {
                         match event.local_name() {
                             b"ns" => PageChildElement::Ns,
                             b"revision" => PageChildElement::Revision,
                             b"title" => PageChildElement::Title,
-                            _ => PageChildElement::Unknown
+                            _ => PageChildElement::Unknown,
                         }
                     } else {
                         PageChildElement::Unknown
                     }
                 }
-                _ => continue
+                _ => continue,
             } {
                 PageChildElement::Ns => match parse_text(parser, &namespace)?.parse() {
                     Err(_) => return Err(Error::Format(parser.reader.buffer_position())),
@@ -214,33 +255,41 @@ fn next(parser: &mut Parser<impl BufRead>) -> Result<Option<Page>, Error> {
                         namespace = Some(value);
                         continue;
                     }
-                }
+                },
                 PageChildElement::Revision => {
                     if text.is_some() {
                         return Err(Error::NotSupported(parser.reader.buffer_position()));
                     }
                     loop {
-                        match match parser.reader.read_namespaced_event(&mut parser.buffer, &mut parser.namespace_buffer)? {
+                        parser.buffer.clear();
+                        match match parser.reader.read_namespaced_event(
+                            &mut parser.buffer,
+                            &mut parser.namespace_buffer,
+                        )? {
                             (_, Event::End(_)) => match text {
                                 None => return Err(Error::Format(parser.reader.buffer_position())),
-                                Some(_) => break
-                            }
+                                Some(_) => break,
+                            },
                             (namespace, Event::Start(event)) => if match_namespace(namespace) {
                                 match event.local_name() {
                                     b"format" => RevisionChildElement::Format,
                                     b"model" => RevisionChildElement::Model,
                                     b"text" => RevisionChildElement::Text,
-                                    _ => RevisionChildElement::Unknown
+                                    _ => RevisionChildElement::Unknown,
                                 }
                             } else {
                                 RevisionChildElement::Unknown
-                            }
-                            _ => continue
+                            },
+                            _ => continue,
                         } {
-                            RevisionChildElement::Format => format = Some(parse_text(parser, &mut format)?),
-                            RevisionChildElement::Model => model = Some(parse_text(parser, &mut model)?),
-                            RevisionChildElement::Text => text = Some(parse_text(parser, &mut text)?),
-                            RevisionChildElement::Unknown => skip_element(parser)?
+                            RevisionChildElement::Format => {
+                                format = Some(parse_text(parser, &format)?)
+                            }
+                            RevisionChildElement::Model => {
+                                model = Some(parse_text(parser, &model)?)
+                            }
+                            RevisionChildElement::Text => text = Some(parse_text(parser, &text)?),
+                            RevisionChildElement::Unknown => skip_element(parser)?,
                         }
                     }
                     continue;
@@ -265,23 +314,33 @@ pub fn parse<R: BufRead>(source: R) -> Parser<R> {
         buffer: vec![],
         namespace_buffer: vec![],
         reader,
-        started: false
+        started: false,
     }
 }
 
 fn parse_text(
     parser: &mut Parser<impl BufRead>,
-    output: &Option<impl Sized>
+    output: &Option<impl Sized>,
 ) -> Result<String, Error> {
     if output.is_some() {
         return Err(Error::Format(parser.reader.buffer_position()));
     }
-    let text = match parser.reader.read_namespaced_event(&mut parser.buffer, &mut parser.namespace_buffer)?.1 {
+    parser.buffer.clear();
+    let text = match parser
+        .reader
+        .read_namespaced_event(&mut parser.buffer, &mut parser.namespace_buffer)?
+        .1
+    {
         Event::Text(text) => text.unescape_and_decode(&parser.reader)?,
         Event::End { .. } => return Ok(String::new()),
-        _ => return Err(Error::Format(parser.reader.buffer_position()))
+        _ => return Err(Error::Format(parser.reader.buffer_position())),
     };
-    if let Event::End(_) = parser.reader.read_namespaced_event(&mut parser.buffer, &mut parser.namespace_buffer)?.1 {
+    parser.buffer.clear();
+    if let Event::End(_) = parser
+        .reader
+        .read_namespaced_event(&mut parser.buffer, &mut parser.namespace_buffer)?
+        .1
+    {
         Ok(text)
     } else {
         Err(Error::Format(parser.reader.buffer_position()))
@@ -291,7 +350,12 @@ fn parse_text(
 fn skip_element(parser: &mut Parser<impl BufRead>) -> Result<(), quick_xml::Error> {
     let mut level = 0;
     loop {
-        match parser.reader.read_namespaced_event(&mut parser.buffer, &mut parser.namespace_buffer)?.1 {
+        parser.buffer.clear();
+        match parser
+            .reader
+            .read_namespaced_event(&mut parser.buffer, &mut parser.namespace_buffer)?
+            .1
+        {
             Event::End(_) => {
                 if level == 0 {
                     return Ok(());

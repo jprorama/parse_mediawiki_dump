@@ -1,3 +1,7 @@
+// Copyright 2018 Fredrik Portström <https://portstrom.com>
+// This is free software distributed under the terms specified in
+// the file LICENSE at the top-level directory of this distribution.
+
 extern crate bzip2;
 extern crate parse_mediawiki_dump;
 
@@ -13,10 +17,12 @@ fn main() {
             eprintln!("Failed to open input file: {}", error);
             std::process::exit(1);
         }
-        Ok(file) => std::io::BufReader::new(file)
+        Ok(file) => std::io::BufReader::new(file),
     };
     if path.ends_with(".bz2") {
-        parse(std::io::BufReader::new(bzip2::bufread::BzDecoder::new(file)));
+        parse(std::io::BufReader::new(bzip2::bufread::BzDecoder::new(
+            file,
+        )));
     } else {
         parse(file);
     }
@@ -29,7 +35,7 @@ fn parse(source: impl std::io::BufRead) {
                 eprintln!("Error: {}", error);
                 std::process::exit(1);
             }
-            Ok(page) => eprintln!("{:#?}", page)
+            Ok(page) => eprintln!("{:#?}", page),
         }
     }
 }

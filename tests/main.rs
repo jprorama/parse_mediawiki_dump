@@ -1,3 +1,7 @@
+// Copyright 2018 Fredrik Portström <https://portstrom.com>
+// This is free software distributed under the terms specified in
+// the file LICENSE at the top-level directory of this distribution.
+
 extern crate parse_mediawiki_dump;
 
 const DUMP: &str = concat!(
@@ -23,16 +27,17 @@ const DUMP: &str = concat!(
 
 #[test]
 fn main() {
-    let mut parser = parse_mediawiki_dump::parse(std::io::BufReader::new(std::io::Cursor::new(DUMP)));
+    let mut parser =
+        parse_mediawiki_dump::parse(std::io::BufReader::new(std::io::Cursor::new(DUMP)));
     assert!(match parser.next() {
         Some(Ok(parse_mediawiki_dump::Page {
             format: Some(format),
             model: Some(model),
             namespace: 0,
             text,
-            title
+            title,
         })) => format == "beta" && model == "gamma" && text == "delta" && title == "alpha",
-        _ => false
+        _ => false,
     });
     assert!(match parser.next() {
         Some(Ok(parse_mediawiki_dump::Page {
@@ -40,9 +45,9 @@ fn main() {
             model: None,
             namespace: 42,
             text,
-            title
+            title,
         })) => text == "zeta" && title == "epsilon",
-        _ => false
+        _ => false,
     });
     assert!(parser.next().is_none());
 }

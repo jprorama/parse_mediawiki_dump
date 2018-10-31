@@ -1,7 +1,11 @@
 [package]
+authors = ["Fredrik Portström <https://portstrom.com>"]
+description = "Parse XML dumps exported from Mediawiki"
+license-file = "LICENSE"
 name = "parse_mediawiki_dump"
+readme = "readme.md"
+repository = "https://github.com/portstrom/parse_mediawiki_dump"
 version = "0.1.0"
-authors = ["Fredrik Portström <fredrik@portstrom.com>"]
 
 [dependencies]
 quick-xml = "0.12"
